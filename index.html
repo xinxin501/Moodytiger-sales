@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>木笛童装销售查价工具</title>
+<meta name="theme-color" content="#ff6b81" />
+<link rel="manifest" href="manifest.json" />
+<style>
+:root{--p:#ff6b81;--g:#f8f8f8;--b:#333}
+*{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB",sans-serif}
+body{margin:0;background:var(--g);padding:16px;max-width:480px;margin:auto;padding-bottom:120px}
+h2{text-align:center;color:var(--p);margin:10px 0 16px}
+input,button{width:100%;padding:12px;margin:6px 0;font-size:16px;border-radius:10px;border:1px solid #ddd}
+button{background:var(--p);color:#fff;border:none;font-weight:bold}
+button:active{opacity:.85}
+.card{background:#fff;border-radius:14px;padding:12px;margin:10px 0;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.row{display:flex;justify-content:space-between;margin:4px 0}
+.total{position:fixed;bottom:0;left:0;right:0;background:#fff;padding:14px 16px;border-top:1px solid #eee}
+.scan{background:#4cd964}
+.del{background:#ff3b30;font-size:12px;padding:6px;width:auto}
+.pool{font-size:12px;color:#888;margin-top:4px}
+#preview{margin-top:10px;font-size:14px;color:#555}
+</style>
+</head>
+<body>
+
+<h2>🧸 木笛童装查价</h2>
+
+<input id="code" placeholder="扫码或输入厂商货号 / 条码" autofocus />
+<button onclick="add()">➕ 加入购物车</button>
+<button class="scan" onclick="scan()">📷 扫码</button>
+
+<div id="preview"></div>
+<div id="list"></div>
+
+<div class="total">
+  <div class="row"><span>原价</span><span id="o">0</span></div>
+  <div class="row"><span>折后</span><span id="d">0</span></div>
+  <div class="row"><span>满减</span><span id="m">0</span></div>
+  <div class="row" style="font-weight:bold"><span>应付</span><span id="t">0</span></div>
+  <div class="row" style="color:var(--p)"><span>🎉 优惠</span><span id="s">0</span></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+const products=[
+{sku:"63110105",barcode:"697123456001",name:"男童网球长袖T恤",price:285,discount:1},
+{sku:"63110108",barcode:"697123456002",name:"男童网球长袖T恤",price:285,discount:1},
+{sku:"MT22001",barcode:"697123456101",name:"儿童运动长筒袜",price:58,discount:0.8},
+{sku:"MT22002",barcode:"697123456102",name:"儿童运动中筒袜",price:48,discount:0.8},
+{sku:"MT22003",barcode:"697123456103",name:"儿童运动短筒袜",price:38,discount:0.8},
+{sku:"MT33001",barcode:"697123456201",name:"女童Lisa针织运动外套",price:460,discount:0.9},
+{sku:"MT33002",barcode:"697123456202",name:"男童轻薄梭织连帽网球外套",price:420,discount:0.9},
+{sku:"MT11001",barcode:"697123456301",name:"男童速干短袖T恤",price:190,discount:"7-6"},
+{sku:"MT11002",barcode:"697123456302",name:"女童瑜伽七分裤",price:260,discount:"7-6"},
+{sku:"MT11003",barcode:"697123456303",name:"男童梭织短裤",price:230,discount:"7-6"}
+];
+let cart=[];
+
+function find(code){
+return products.find(p=>p.sku===code||p.barcode===code);
+}
+
+function add(){
+const v=document.getElementById("code").value.trim();
+if(!v)return;
+const p=find(v);
+if(!p){alert("未找到商品");return;}
+cart.push({...p,qty:1});
+render();
+document.getElementById("code").value="";
+document.getElementById("preview").innerText=`已添加：${p.name}`;
+}
+
+function render(){
+let html="",o=0,d=0;
+const pool={};
+cart.forEach((p,i)=>{
+o+=p.price*p.qty;
+let dp=p.price;
+if(p.discount==="7-6"){
+pool[p.sku]=pool[p.sku]||{cnt:0,items:[]};
+pool[p.sku].cnt+=p.qty;
+pool[p.sku].items.push(i);
+dp=p.price*0.7;
+}else if(p.discount===0.8||p.discount===0.9){
+dp=p.price*p.discount;
+}else{
+dp=p.price;
+}
+d+=dp*p.qty;
+html+=`<div class="card"><div>${p.name}</div><div class="pool">${p.sku}</div><div class="row"><span>¥${p.price}</span><span>x${p.qty}</span><button class="del" onclick="del(${i})">删</button></div></div>`;
+});
+Object.values(pool).forEach(g=>{
+if(g.cnt>=3)g.items.forEach(i=>cart[i].price*=0.6/0.7);
+});
+d=0;
+cart.forEach(p=>{
+if(p.discount==="7-6"){
+d+=p.price*p.qty;
+}else if(p.discount===0.8||p.discount===0.9){
+d+=p.price*p.qty;
+}else{
+d+=p.price*p.qty;
+}
+});
+let m=Math.floor(d/1000)*120;
+let t=d-m;
+document.getElementById("list").innerHTML=html;
+document.getElementById("o").innerText="¥"+o;
+document.getElementById("d").innerText="¥"+Math.round(d);
+document.getElementById("m").innerText="-¥"+m;
+document.getElementById("t").innerText="¥"+Math.round(t);
+document.getElementById("s").innerText="¥"+(o-Math.round(t));
+}
+
+function del(i){cart.splice(i,1);render();}
+
+function scan(){
+const v=document.createElement("video");
+navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}}).then(s=>{
+v.srcObject=s;
+v.play();
+const c=document.createElement("canvas");
+requestAnimationFrame(function f(){
+if(v.readyState===v.HAVE_ENOUGH_DATA){
+c.width=v.videoWidth;c.height=v.videoHeight;
+c.getContext("2d").drawImage(v,0,0);
+const r=jsQR(c.getContext("2d").getImageData(0,0,c.width,c.height).data,c.width,c.height);
+if(r){s.getTracks().forEach(t=>t.stop());document.getElementById("code").value=r.data;add();}
+else requestAnimationFrame(f);
+}
+});
+});
+}
+
+if('serviceWorker' in navigator){
+navigator.serviceWorker.register('sw.js');
+}
+</script>
+</body>
+</html>
